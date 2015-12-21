@@ -6,10 +6,6 @@
 // Flag telling us to keep executing the main loop
 static int continue_in_main_loop = 1;
 
-// The amount the view is translated and scaled
-double xwin = 0.0, ywin = 0.0;
-double scale_factor = 1.0;
-
 static void displayProc(void) {
   glClear(GL_COLOR_BUFFER_BIT);
 
@@ -47,6 +43,8 @@ static void reshapeProc(int width, int height) {
   glLoadIdentity();
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
+  glViewport(0, 0, width, height);
+  glutPostRedisplay();
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -54,7 +52,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
   char **argv = nullptr;
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-  glutInitWindowSize(500, 250);
+  glutInitWindowSize(200, 200);
   glutInitWindowPosition(140, 140);
   glutCreateWindow("filter");
 
