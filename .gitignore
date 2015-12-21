@@ -11,16 +11,27 @@
 *.userprefs
 
 # Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-build/
-bld/
-[Bb]in/
+# [Dd]ebug/
+# [Dd]ebugPublic/
+# [Rr]elease/
+# [Rr]eleases/
+# x64/
+# x86/
+# build/
+# bld/
+# [Bb]in/
+CMakeFiles/
 [Oo]bj/
+
+# Visual studio logs and rules
+*.tlog
+*.vcxproj
+*.filters
+*.stamp
+*.rule
+*.cmake
+CMakeCache.txt
+*.sln
 
 # Visual Studio 2015 cache/options directory
 .vs/
