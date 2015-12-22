@@ -3,9 +3,12 @@ project (filter)
 set (CMAKE_CXX_STANDARD 11)
 
 set (SRCS src/main.cpp
-          src/array_view.hpp)
+          src/array_view.hpp
+          src/shader_utils.hpp)
 
 add_executable (filter ${SRCS})
+
+add_definitions(-D_SCL_SECURE_NO_WARNINGS) # Suppress MSVC checked iterators warnings
 
 # FreeGLUT dependency
 target_include_directories (filter PUBLIC deps/FreeGLUT/include)

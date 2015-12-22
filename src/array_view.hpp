@@ -12,13 +12,21 @@ namespace arv {
       : data_(v.data()), first_element_(0), size_(v.size())
     {}
 
-    array_view(std::vector<T>& v, size_t first_element, size_t size)
+    array_view(std::vector<T>& v, size_t first_element, size_t size = 1)
       : array_view(v) {
       first_element_ = first_element;
       size_ = size;
     }
 
     // Todo other overloads
+
+    array_view& operator=(T&& element) {
+      if (size_ < 1)
+        throw std::out_of_range("Too many elements specified");
+
+      data_[first_element_] = element;
+      return *this;
+    }
 
     array_view& operator=(std::initializer_list<T>&& list) {
       if (size_ != -1 && list.size() > size_)

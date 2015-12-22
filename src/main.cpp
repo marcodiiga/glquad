@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include "array_view.hpp"
+#include "shader_utils.hpp"
 #include <iostream>
 #include <algorithm>
 #include <array>
@@ -32,18 +33,31 @@ void reverse_aggregates(std::vector<T>& vec, size_t fields_per_element) {
 }
 
 class TexturedVertex {
+public:
 
   // Vertex data
-  std::array<float, 4> xyzw = { { 0, 0, 0, 1 } };
-  std::array<float, 4> rgba = { { 1, 1, 1, 1 } };
-  std::array<float, 2> st = { { 0, 0 } };
+  struct PackedData {
+    PackedData() = default;
+    PackedData(std::initializer_list<float> list) {
+      if (list.size() != 10)
+        throw std::runtime_error("Wrong number of arguments");
+      std::copy(list.begin()    , list.begin() + 4, std::begin(xyzw));
+      std::copy(list.begin() + 4, list.begin() + 8, std::begin(rgba));
+      std::copy(list.begin() + 8, list.end()      , std::begin(st));
+    }
+    float xyzw[4] =  { 0, 0, 0, 1 };
+    float rgba[4] =  { 1, 1, 1, 1 };
+    float st[2]   =  { 0, 0 };
+  };
 
-public:
+  static_assert(std::is_standard_layout<PackedData>::value,
+                "Need a standard layout packed structure");
 
   // Getters and setters
 
   void setXYZW(float x, float y, float z, float w) {
-    this->xyzw = { {x, y, z, w} };
+    auto temp = make_array<float>( x, y, z, w );
+    std::copy(temp.begin(), temp.end(), std::begin(this->data_.xyzw));
   }
 
   void setXYZ(float x, float y, float z) {
@@ -51,7 +65,8 @@ public:
   }
 
   void setRGBA(float r, float g, float b, float a) {
-    this->rgba = {{r, g, b, 1} };
+    auto temp = make_array<float>( r, g, b, 1 );
+    std::copy(temp.begin(), temp.end(), std::begin(this->data_.rgba));
   }
 
   void setRGB(float r, float g, float b) {
@@ -59,56 +74,41 @@ public:
   }
 
   void setST(float s, float t) {
-    this->st = { {s, t} };
+    auto temp = make_array<float>( s, t );
+    std::copy(temp.begin(), temp.end(), std::begin(this->data_.st));
   }
 
-  void writeElements(arv::array_view<float> view) const {
+  void writeElements(arv::array_view<TexturedVertex::PackedData> view) const {
     view = {
-      xyzw[0], xyzw[1], xyzw[2], xyzw[3],
-      rgba[0], rgba[1], rgba[2], rgba[3],
-      st[0], st[1]
+      data_.xyzw[0], data_.xyzw[1], data_.xyzw[2], data_.xyzw[3],
+      data_.rgba[0], data_.rgba[1], data_.rgba[2], data_.rgba[3],
+      data_.st[0], data_.st[1]
     };
   }
 
   // Number of components per each data field
-  static constexpr const int position_components_count() {
-    return static_cast<int>(std::tuple_size<decltype(xyzw)>::value);
-  }
+  static constexpr const int position_components_count = 4;
+  static constexpr const int color_components_count = 4;
+  static constexpr const int uv_components_count = 2;
 
-  static constexpr const int color_components_count() {
-    return static_cast<int>(std::tuple_size<decltype(rgba)>::value);
-  }
-
-  static constexpr const int uv_components_count() {
-    return static_cast<int>(std::tuple_size<decltype(st)>::value);
-  }
-
-  // Returns the size of TexturedVertex's data
-  static constexpr const size_t data_size() {
-    static_assert(
-      position_components_count() >= 1 && position_components_count() <= 4 &&
-      position_components_count() >= 1 && position_components_count() <= 4 &&
-      position_components_count() >= 1 && position_components_count() <= 4,
-      "Only 1,2,3 or 4 components can be bound to a vertex attribute"
-    );
-    return (position_components_count()
-      + color_components_count()
-      + uv_components_count()) * sizeof(float);
-  }
+  // Returns the size of TexturedVertex's packed data
+  static constexpr const size_t packed_data_size = sizeof(PackedData);
 
   // Stride between same-component same-field elements in a buffer of adjacent
-  // TexturedVertices
-  static constexpr const size_t stride = (std::tuple_size<decltype(xyzw)>::value
-    + std::tuple_size<decltype(rgba)>::value + std::tuple_size<decltype(st)>::value)
-    * sizeof(float);
+  // PackedData structures
+  static constexpr const size_t stride = sizeof(PackedData);  
+
   // Byte offsets
   static constexpr const int position_byte_offset = 0;
   static constexpr const int color_byte_offset = position_byte_offset +
-    (std::tuple_size<decltype(xyzw)>::value) * sizeof(float);
+                                                 offsetof(PackedData, rgba);
   static constexpr const int uv_byte_offset = color_byte_offset +
-    (std::tuple_size<decltype(rgba)>::value) * sizeof(float);
+                                              offsetof(PackedData, st);
+private:
+  PackedData data_;
 };
 
+// Set up a quad
 void setupQuad() {
   // Define our quad using 4 vertices of the custom 'TexturedVertex' class
   TexturedVertex v0;
@@ -119,23 +119,23 @@ void setupQuad() {
   v2.setXYZ(0.5f, -0.5f, 0); v2.setRGB(0, 0, 1); v2.setST(1, 1);
   TexturedVertex v3;
   v3.setXYZ(0.5f, 0.5f, 0); v3.setRGB(1, 1, 1); v3.setST(1, 0);
+  const int N = 4; // Number of vertices
 
 
   // Store the textured vertices data and indices in two host buffers
-  constexpr size_t vertex_size = TexturedVertex::data_size();
-  constexpr size_t vertex_floats_count = vertex_size / sizeof(float);
-  std::vector<float> vertices_buffer(vertex_floats_count * 4);
-  v0.writeElements(arv::array_view<float>{vertices_buffer, vertex_floats_count * 0, vertex_floats_count});
-  v1.writeElements(arv::array_view<float>{vertices_buffer, vertex_floats_count * 1, vertex_floats_count});
-  v2.writeElements(arv::array_view<float>{vertices_buffer, vertex_floats_count * 2, vertex_floats_count});
-  v3.writeElements(arv::array_view<float>{vertices_buffer, vertex_floats_count * 3, vertex_floats_count});
+  constexpr size_t vertex_size = TexturedVertex::packed_data_size;
+  std::vector<TexturedVertex::PackedData> vertices_buffer(N);
+  v0.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 0});
+  v1.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 1});
+  v2.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 2});
+  v3.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 3});
   auto indices = make_array<char>(
     0, 1, 2,
     2, 3, 0
   );
   // OpenGL expects to draw vertices in counter clockwise order by default
   std::reverse(indices.begin(), indices.end());
-  reverse_aggregates(vertices_buffer, vertex_floats_count);
+  std::reverse(vertices_buffer.begin(), vertices_buffer.end());
 
   // Set up VAO and VBO
 
@@ -149,15 +149,15 @@ void setupQuad() {
   glBufferData(GL_ARRAY_BUFFER, vertices_buffer.size() * sizeof(float), vertices_buffer.data(), GL_STATIC_DRAW);
 
   // Set vertex shader attribute 0 - position
-  glVertexAttribPointer(0, TexturedVertex::position_components_count(), GL_FLOAT,
+  glVertexAttribPointer(0, TexturedVertex::position_components_count, GL_FLOAT,
     false, TexturedVertex::stride, &TexturedVertex::position_byte_offset);
 
   // Set vertex shader attribute 1 - color
-  glVertexAttribPointer(1, TexturedVertex::color_components_count(), GL_FLOAT,
+  glVertexAttribPointer(1, TexturedVertex::color_components_count, GL_FLOAT,
     false, TexturedVertex::stride, &TexturedVertex::color_byte_offset);
 
   // Set vertex shader attribute 3 - uv coords
-  glVertexAttribPointer(2, TexturedVertex::uv_components_count(), GL_FLOAT,
+  glVertexAttribPointer(2, TexturedVertex::uv_components_count, GL_FLOAT,
     false, TexturedVertex::stride, &TexturedVertex::uv_byte_offset);
 
   glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
@@ -171,9 +171,72 @@ void setupQuad() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
+const std::string vertex_shader_source = {R"(
+
+#version 150 core
+
+in vec4 in_Position;
+in vec4 in_Color;
+in vec2 in_TextureCoord;
+
+out vec4 pass_Color;
+out vec2 pass_TextureCoord;
+
+void main(void) {
+	gl_Position = in_Position;
+	
+	pass_Color = in_Color;
+	pass_TextureCoord = in_TextureCoord;
+}
+
+)"};
+
+const std::string fragment_shader_source = { R"(
+
+#version 150 core
+
+uniform sampler2D texture_diffuse;
+
+in vec4 pass_Color;
+in vec2 pass_TextureCoord;
+
+out vec4 out_Color;
+
+void main(void) {
+	out_Color = pass_Color;
+	// Override out_Color with our texture pixel
+	out_Color = texture(texture_diffuse, pass_TextureCoord);
+}
+
+)" };
 
 
+std::unique_ptr<ShaderProgram> shader_program;
 
+void setupShaders() {
+  // Load the vertex shader from file
+  Shader vertex_textured(GL_VERTEX_SHADER);
+  vertex_textured.loadFromString(vertex_shader_source);
+  vertex_textured.compile();
+
+  // Load the fragment shader
+  Shader fragment_shader(GL_FRAGMENT_SHADER);
+  fragment_shader.loadFromString(fragment_shader_source);
+  fragment_shader.compile();
+
+  // Create a program which binds the shaders
+  shader_program = std::make_unique<ShaderProgram>();
+  shader_program->addShader(std::move(vertex_textured));
+  shader_program->addShader(std::move(fragment_shader));
+
+  // Bind named attributes in the shader program to 1, 2 and 3 VAO indices
+  glBindAttribLocation(shader_program->getId(), 0, "in_Position");
+  glBindAttribLocation(shader_program->getId(), 1, "in_Color");
+  glBindAttribLocation(shader_program->getId(), 2, "in_TextureCoord");
+
+  shader_program->linkProgram();
+  shader_program->validateProgram();
+}
 
 
 
@@ -215,11 +278,13 @@ static void displayProc(void) {
   glPushMatrix();
 
   glColor4f(0.5f, 0.0, 0.0, 1.0f);
+  /*
   glBegin(GL_TRIANGLES);
     glVertex3f(0.0, 1.0, 0.0);
     glVertex3f(1.0, 0.0, 0.0);
     glVertex3f(0.0, 0.0, 0.0);
   glEnd();
+  */
 
   glPopMatrix();
   glutSwapBuffers();
@@ -253,22 +318,29 @@ static void reshapeProc(int width, int height) {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
   int argc = 0;
   char **argv = nullptr;
+  glutInitContextVersion(3, 2);
+  glutInitContextProfile(GLUT_CORE_PROFILE);
+  glutInitContextFlags(GLUT_DEBUG);
   glutInit(&argc, argv);
+
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
   glutInitWindowSize(200, 200);
   glutInitWindowPosition(140, 140);
   glutCreateWindow("filter");
+  // glClearColor(1, 0, 0, 1);
 
   glutKeyboardFunc(keyProc);
   glutDisplayFunc(displayProc);
   glutReshapeFunc(reshapeProc);
 
+  glewExperimental = GL_TRUE; // Ensure all supported extension are active
   glewInit();
   std::stringstream ss;
   ss << "OpenGL version supported by this platform: [" << glGetString(GL_VERSION) << "]\n";
   OutputDebugString(ss.str().c_str());
 
   setupQuad();
+  setupShaders();
 
   while (continue_in_main_loop)
     glutMainLoopEvent();
