@@ -4,6 +4,7 @@
 #include <GL/freeglut.h>
 #include "array_view.hpp"
 #include "shader_utils.hpp"
+#include "image_utils.hpp"
 #include <iostream>
 #include <algorithm>
 #include <array>
@@ -242,7 +243,14 @@ void setupShaders() {
 
 
 
+void loadPNGTexture() { // TESTME
 
+  int width, height;
+  bool has_alpha;
+  std::vector<char> image_data;
+  loadPNGImageData("assets/textures/tex1.png", width, height, has_alpha, image_data);
+
+}
 
 
 
