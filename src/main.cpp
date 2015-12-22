@@ -109,6 +109,13 @@ private:
   PackedData data_;
 };
 
+
+std::unique_ptr<ShaderProgram> shader_program;
+GLuint texture_id;
+GLuint vaoId;
+GLuint vboId;
+GLsizei indices_count;
+
 // Set up a quad
 void setupQuad() {
   // Define our quad using 4 vertices of the custom 'TexturedVertex' class
@@ -134,17 +141,16 @@ void setupQuad() {
     0, 1, 2,
     2, 3, 0
   );
+  indices_count = static_cast<GLsizei>(indices.size());
   // OpenGL expects to draw vertices in counter clockwise order by default
   std::reverse(indices.begin(), indices.end());
   std::reverse(vertices_buffer.begin(), vertices_buffer.end());
 
   // Set up VAO and VBO
-
-  GLuint vaoId;
+  
   glGenVertexArrays(1, &vaoId); // Generate an unused vertex array name
   glBindVertexArray(vaoId); // Bind and create a VAO
 
-  GLuint vboId;
   glGenBuffers(1, &vboId);
   glBindBuffer(GL_ARRAY_BUFFER, vboId); // Bind and create a VBO (0-sized for now)
   glBufferData(GL_ARRAY_BUFFER, vertices_buffer.size() * sizeof(float), vertices_buffer.data(), GL_STATIC_DRAW);
@@ -212,8 +218,6 @@ void main(void) {
 )" };
 
 
-std::unique_ptr<ShaderProgram> shader_program;
-
 void setupShaders() {
   // Load the vertex shader from file
   Shader vertex_textured(GL_VERTEX_SHADER);
@@ -240,16 +244,41 @@ void setupShaders() {
 }
 
 
+void loadPNGTexture() {
 
+    int width, height;
+    GLint format;
+    std::vector<unsigned char> image_data;
 
+    bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);
+    if (res == false)
+      throw std::runtime_error("Could not load asset");
 
-void loadPNGTexture() { // TESTME
+    auto isPowerOf2 = [](int val) {
+      if (((val - 1) & val) == 0)
+        return true;
+      else
+        return false;
+    };
+    if (isPowerOf2(width) == false || isPowerOf2(height) == false)
+      // This is not true for all implementations, keep it as a safety measure
+      throw std::runtime_error("Texture dimensions should be a power of two");
+    
+    glGenTextures(1, &texture_id); // Create texture object
+    glActiveTexture(GL_TEXTURE0); // Activate texunit 0
+    glBindTexture(GL_TEXTURE_2D, texture_id); // Bind as 2D texture
 
-  int width, height;
-  bool has_alpha;
-  std::vector<char> image_data;
-  loadPNGImageData("assets/textures/tex1.png", width, height, has_alpha, image_data);
+    // Upload data and generate mipmaps
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
 
+    // Set up UV coords 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    // Set up scaling filters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 }
 
 
@@ -281,20 +310,38 @@ void loadPNGTexture() { // TESTME
 static int continue_in_main_loop = 1;
 
 static void displayProc(void) {
+  
+  // Render the scene
+  glClearColor(0.5, 0.2, 0.2, 1);
   glClear(GL_COLOR_BUFFER_BIT);
 
-  glPushMatrix();
+  glUseProgram(shader_program->getId());
 
-  glColor4f(0.5f, 0.0, 0.0, 1.0f);
-  /*
-  glBegin(GL_TRIANGLES);
-    glVertex3f(0.0, 1.0, 0.0);
-    glVertex3f(1.0, 0.0, 0.0);
-    glVertex3f(0.0, 0.0, 0.0);
-  glEnd();
-  */
+  // Bind the texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture_id);
 
-  glPopMatrix();
+  // Bind to the VAO that has all the information about the vertices
+  glBindVertexArray(vaoId);
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
+
+  // Bind to the index VBO that has all the information about the order of the vertices
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboId);
+
+  // Draw the vertices
+  glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0);
+
+  // Put everything back to default (deselect)
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+  glDisableVertexAttribArray(2);
+  glBindVertexArray(0);
+
+  glUseProgram(0);
+
   glutSwapBuffers();
 }
 
@@ -326,16 +373,15 @@ static void reshapeProc(int width, int height) {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
   int argc = 0;
   char **argv = nullptr;
-  glutInitContextVersion(3, 2);
+  /*glutInitContextVersion(3, 2);
   glutInitContextProfile(GLUT_CORE_PROFILE);
-  glutInitContextFlags(GLUT_DEBUG);
+  glutInitContextFlags(GLUT_DEBUG);*/
   glutInit(&argc, argv);
 
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
   glutInitWindowSize(200, 200);
   glutInitWindowPosition(140, 140);
-  glutCreateWindow("filter");
-  // glClearColor(1, 0, 0, 1);
+  glutCreateWindow("filter");   
 
   glutKeyboardFunc(keyProc);
   glutDisplayFunc(displayProc);
@@ -349,6 +395,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
   setupQuad();
   setupShaders();
+  loadPNGTexture();
 
   while (continue_in_main_loop)
     glutMainLoopEvent();
