@@ -98,6 +98,10 @@ public:
   }
 
   ~ShaderProgram() {
+    if (shaders_detached == false)
+      detachAllShaders();
+    for (auto& shader : shaders)
+      glDeleteShader(shader.getId());
     glDeleteProgram(id);
   }
 
@@ -129,6 +133,12 @@ public:
                                 needed to perform linking");
   }
 
+  void detachAllShaders() {
+    for (auto& shader : shaders)
+      glDetachShader(id, shader.getId());
+    shaders_detached = true;
+  }
+
   GLuint getId() const {
     return id;
   }
@@ -146,6 +156,7 @@ private:
   std::vector<Shader> shaders;
   bool vertex_shader_present = false;
   bool fragment_shader_present = false;
+  bool shaders_detached = false;
 };
 
 #endif // HEADER_SHADERUTILS_HPP

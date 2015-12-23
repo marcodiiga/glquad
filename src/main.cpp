@@ -1,11 +1,12 @@
+#ifdef _MSC_VER
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
+#endif
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include "array_view.hpp"
 #include "shader_utils.hpp"
 #include "image_utils.hpp"
-#include <iostream>
 #include <algorithm>
 #include <array>
 #include <vector>
@@ -19,21 +20,6 @@ template<typename ...T>
 auto make_array(T ...args)->std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)> {
   return std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)>{ {
       static_cast<typename std::tuple_element<0, std::tuple<T...>>::type>(args)...}};
-}
-
-template<typename T>
-void reverse_aggregates(std::vector<T>& vec, size_t fields_per_element) {
-  if (vec.size() % fields_per_element != 0)
-    throw std::runtime_error("Invalid parameters");
-
-  if (vec.size() < 2)
-    return;
-
-  for (size_t i = 0; i < (vec.size() / fields_per_element) / 2; ++i) {
-    for (size_t j = 0; j < fields_per_element; ++j) {
-      std::swap(vec[i * fields_per_element + j], vec[(vec.size() - i * fields_per_element) - fields_per_element + j]);
-    }
-  }
 }
 
 class TexturedVertex {
@@ -145,12 +131,6 @@ void setupQuad() {
     2, 3, 0
   );
   indices_count = static_cast<GLsizei>(indices.size());
-  
-  float arrrrr[10 * 4];
-  memcpy(arrrrr, &vertices_buffer[0], sizeof(float) * 10);
-  memcpy(arrrrr + 10, &vertices_buffer[1], sizeof(float) * 10);
-  memcpy(arrrrr + 20, &vertices_buffer[2], sizeof(float) * 10);
-  memcpy(arrrrr + 30, &vertices_buffer[3], sizeof(float) * 10);
 
   // Set up VAO and VBO
   
@@ -283,29 +263,32 @@ void loadPNGTexture() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 }
 
+void unloadOpenGL() {
+    glDeleteTextures(1, &texture_id);
 
+    // Delete the shaders
+    glUseProgram(0);
+    shader_program.release(); // Also detaches shaders before deleting them
+    
+    // Select the VAO
+    glBindVertexArray(vaoId);
 
+    // Disable the VBO index from the VAO attributes list
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 
+    // Delete the vertex VBO
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &vboId);
 
+    // Delete the index VBO
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &vboiId);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // Delete the VAO
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &vaoId);
+}
 
 
 // Flag telling us to keep executing the main loop
@@ -351,7 +334,7 @@ static void keyProc(unsigned char key, int x, int y) {
 
   switch (key) {
     case 27:  // Escape key
-      continue_in_main_loop = 0;
+      glutLeaveMainLoop();
       break;
 
     default:
@@ -371,18 +354,23 @@ static void reshapeProc(int width, int height) {
   glutPostRedisplay();
 }
 
+#ifdef WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+#else
+int main(int argc, char **argv) {
+#endif
   int argc = 0;
   char **argv = nullptr;
-  // glutInitContextVersion(3, 2);
-  glutInitContextProfile(GLUT_CORE_PROFILE);
-  glutInitContextFlags(GLUT_DEBUG);
+  // glutInitContextVersion(4, 1);
+  // glutInitContextFlags(GLUT_DEBUG);
+  glutInitContextProfile(GLUT_CORE_PROFILE); // 4.1 Core Profile context
   glutInit(&argc, argv);
 
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-  glutInitWindowSize(200, 200);
+  glutInitWindowSize(300, 300);
   glutInitWindowPosition(140, 140);
-  glutCreateWindow("filter");   
+  glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+  glutCreateWindow("filter");
 
   glClearColor(0.0, 0.0, 0.0, 1);
 
@@ -392,16 +380,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
   glewExperimental = GL_TRUE; // Ensure all supported extension are active
   glewInit();
+
+#ifdef _MSC_VER
+#ifdef _DEBUG
   std::stringstream ss;
   ss << "OpenGL version supported by this platform: [" << glGetString(GL_VERSION) << "]\n";
   OutputDebugString(ss.str().c_str());
+#endif
+#endif
 
   setupQuad();
   setupShaders();
   loadPNGTexture();
 
-  while (continue_in_main_loop)
-    glutMainLoopEvent();
+  glutMainLoop(); // Start main window loop - return on close
+
+  unloadOpenGL();
 
   return 0;
 }
