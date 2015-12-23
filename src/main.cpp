@@ -346,11 +346,11 @@ static void keyProc(unsigned char key, int x, int y) {
 }
 
 static void reshapeProc(int width, int height) {
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glViewport(0, 0, width, height);
+  // glMatrixMode(GL_MODELVIEW);
+  // glLoadIdentity();
+  // glMatrixMode(GL_PROJECTION);
+  // glLoadIdentity();
+  // glViewport(0, 0, width, height);
   glutPostRedisplay();
 }
 
