@@ -12,6 +12,9 @@
 #include <tuple>
 #include <sstream>
 
+// Type unsafe way of converting an integer to a char pointer
+#define BUFFER_OFFSET(i) ((char *)NULL + (i))
+
 template<typename ...T>
 auto make_array(T ...args)->std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)> {
   return std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)>{ {
@@ -101,10 +104,8 @@ public:
 
   // Byte offsets
   static constexpr const int position_byte_offset = 0;
-  static constexpr const int color_byte_offset = position_byte_offset +
-                                                 offsetof(PackedData, rgba);
-  static constexpr const int uv_byte_offset = color_byte_offset +
-                                              offsetof(PackedData, st);
+  static constexpr const int color_byte_offset = offsetof(PackedData, rgba);
+  static constexpr const int uv_byte_offset = offsetof(PackedData, st);
 private:
   PackedData data_;
 };
@@ -114,6 +115,7 @@ std::unique_ptr<ShaderProgram> shader_program;
 GLuint texture_id;
 GLuint vaoId;
 GLuint vboId;
+GLuint vboiId;
 GLsizei indices_count;
 
 // Set up a quad
@@ -137,14 +139,18 @@ void setupQuad() {
   v1.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 1});
   v2.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 2});
   v3.writeElements(arv::array_view<TexturedVertex::PackedData>{vertices_buffer, 3});
+  // OpenGL expects to draw vertices in counter clockwise order by default
   auto indices = make_array<char>(
     0, 1, 2,
     2, 3, 0
   );
   indices_count = static_cast<GLsizei>(indices.size());
-  // OpenGL expects to draw vertices in counter clockwise order by default
-  std::reverse(indices.begin(), indices.end());
-  std::reverse(vertices_buffer.begin(), vertices_buffer.end());
+  
+  float arrrrr[10 * 4];
+  memcpy(arrrrr, &vertices_buffer[0], sizeof(float) * 10);
+  memcpy(arrrrr + 10, &vertices_buffer[1], sizeof(float) * 10);
+  memcpy(arrrrr + 20, &vertices_buffer[2], sizeof(float) * 10);
+  memcpy(arrrrr + 30, &vertices_buffer[3], sizeof(float) * 10);
 
   // Set up VAO and VBO
   
@@ -153,25 +159,25 @@ void setupQuad() {
 
   glGenBuffers(1, &vboId);
   glBindBuffer(GL_ARRAY_BUFFER, vboId); // Bind and create a VBO (0-sized for now)
-  glBufferData(GL_ARRAY_BUFFER, vertices_buffer.size() * sizeof(float), vertices_buffer.data(), GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(TexturedVertex::PackedData) * vertices_buffer.size(),
+    vertices_buffer.data(), GL_STATIC_DRAW);
 
   // Set vertex shader attribute 0 - position
   glVertexAttribPointer(0, TexturedVertex::position_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, &TexturedVertex::position_byte_offset);
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::position_byte_offset));
 
   // Set vertex shader attribute 1 - color
   glVertexAttribPointer(1, TexturedVertex::color_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, &TexturedVertex::color_byte_offset);
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::color_byte_offset));
 
   // Set vertex shader attribute 3 - uv coords
   glVertexAttribPointer(2, TexturedVertex::uv_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, &TexturedVertex::uv_byte_offset);
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::uv_byte_offset));
 
   glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
   glBindVertexArray(0); // Unbind VAO
 
-  // Create a new VBO for the indices and select it (bind it)
-  GLuint vboiId;
+  // Create a new VBO for the indices and select it (bind it)  
   glGenBuffers(1, &vboiId);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(char), indices.data(), GL_STATIC_DRAW);
@@ -179,8 +185,6 @@ void setupQuad() {
 }
 
 const std::string vertex_shader_source = {R"(
-
-#version 150 core
 
 in vec4 in_Position;
 in vec4 in_Color;
@@ -199,8 +203,6 @@ void main(void) {
 )"};
 
 const std::string fragment_shader_source = { R"(
-
-#version 150 core
 
 uniform sampler2D texture_diffuse;
 
@@ -311,8 +313,7 @@ static int continue_in_main_loop = 1;
 
 static void displayProc(void) {
   
-  // Render the scene
-  glClearColor(0.5, 0.2, 0.2, 1);
+  // Render the scene  
   glClear(GL_COLOR_BUFFER_BIT);
 
   glUseProgram(shader_program->getId());
@@ -328,7 +329,7 @@ static void displayProc(void) {
   glEnableVertexAttribArray(2);
 
   // Bind to the index VBO that has all the information about the order of the vertices
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboId);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
 
   // Draw the vertices
   glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0);
@@ -373,15 +374,17 @@ static void reshapeProc(int width, int height) {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
   int argc = 0;
   char **argv = nullptr;
-  /*glutInitContextVersion(3, 2);
+  // glutInitContextVersion(3, 2);
   glutInitContextProfile(GLUT_CORE_PROFILE);
-  glutInitContextFlags(GLUT_DEBUG);*/
+  glutInitContextFlags(GLUT_DEBUG);
   glutInit(&argc, argv);
 
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
   glutInitWindowSize(200, 200);
   glutInitWindowPosition(140, 140);
   glutCreateWindow("filter");   
+
+  glClearColor(0.0, 0.0, 0.0, 1);
 
   glutKeyboardFunc(keyProc);
   glutDisplayFunc(displayProc);
