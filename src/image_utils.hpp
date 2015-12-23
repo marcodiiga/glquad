@@ -127,7 +127,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   // set the individual row_pointers to point at the correct offsets of image_data
   for (unsigned int i = 0; i < temp_height; i++) 
   {
-    (row_pointers.get())[i] = image_data.data() + i * rowbytes;
+    (row_pointers.get())[temp_height - 1 - i] = image_data.data() + i * rowbytes;
   }
 
   // read the png into image_data through row_pointers

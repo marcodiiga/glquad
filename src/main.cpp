@@ -33,11 +33,32 @@ public:
         throw std::runtime_error("Wrong number of arguments");
       std::copy(list.begin()    , list.begin() + 4, std::begin(xyzw));
       std::copy(list.begin() + 4, list.begin() + 8, std::begin(rgba));
-      std::copy(list.begin() + 8, list.end()      , std::begin(st));
+      std::copy(list.begin() + 8, list.end()      , std::begin(uv));
     }
+    //
+    // XYZ coords
+    //
+    //  ^ Y
+    //  |
+    //  |
+    //  --------------> X
+    // / Z (positive is from the monitor towards you)
+    //
+    // Vertices are usually defined in counter-clockwise order
     float xyzw[4] =  { 0, 0, 0, 1 };
+    // RGB and Alpha (0 - transparent, 1 - opaque)
     float rgba[4] =  { 1, 1, 1, 1 };
-    float st[2]   =  { 0, 0 };
+    //
+    // UV coords (also known as ST coords). Always in range [0;1]
+    // ------> U
+    // |
+    // | V
+    // v
+    //
+    // Tiling is possible when the range is exceeded.
+    // Remember that openGL considers the first row of a texture image to be
+    // the bottom one.
+    float uv[2]   =  { 0, 0 };
   };
 
   static_assert(std::is_standard_layout<PackedData>::value,
@@ -63,16 +84,16 @@ public:
     this->setRGBA(r, g, b, 1);
   }
 
-  void setST(float s, float t) {
-    auto temp = make_array<float>( s, t );
-    std::copy(temp.begin(), temp.end(), std::begin(this->data_.st));
+  void setUV(float u, float v) {
+    auto temp = make_array<float>( u, v );
+    std::copy(temp.begin(), temp.end(), std::begin(this->data_.uv));
   }
 
   void writeElements(arv::array_view<TexturedVertex::PackedData> view) const {
     view = {
       data_.xyzw[0], data_.xyzw[1], data_.xyzw[2], data_.xyzw[3],
       data_.rgba[0], data_.rgba[1], data_.rgba[2], data_.rgba[3],
-      data_.st[0], data_.st[1]
+      data_.uv[0], data_.uv[1]
     };
   }
 
@@ -91,7 +112,7 @@ public:
   // Byte offsets
   static constexpr const int position_byte_offset = 0;
   static constexpr const int color_byte_offset = offsetof(PackedData, rgba);
-  static constexpr const int uv_byte_offset = offsetof(PackedData, st);
+  static constexpr const int uv_byte_offset = offsetof(PackedData, uv);
 private:
   PackedData data_;
 };
@@ -108,13 +129,13 @@ GLsizei indices_count;
 void setupQuad() {
   // Define our quad using 4 vertices of the custom 'TexturedVertex' class
   TexturedVertex v0;
-  v0.setXYZ(-0.5f, 0.5f, 0); v0.setRGB(1, 0, 0); v0.setST(0, 0);
+  v0.setXYZ(-0.5f, 0.5f, 0); v0.setRGB(1, 0, 0); v0.setUV(0, 1);
   TexturedVertex v1;
-  v1.setXYZ(-0.5f, -0.5f, 0); v1.setRGB(0, 1, 0); v1.setST(0, 1);
+  v1.setXYZ(-0.5f, -0.5f, 0); v1.setRGB(0, 1, 0); v1.setUV(0, 0);
   TexturedVertex v2;
-  v2.setXYZ(0.5f, -0.5f, 0); v2.setRGB(0, 0, 1); v2.setST(1, 1);
+  v2.setXYZ(0.5f, -0.5f, 0); v2.setRGB(0, 0, 1); v2.setUV(1, 0);
   TexturedVertex v3;
-  v3.setXYZ(0.5f, 0.5f, 0); v3.setRGB(1, 1, 1); v3.setST(1, 0);
+  v3.setXYZ(0.5f, 0.5f, 0); v3.setRGB(1, 1, 1); v3.setUV(1, 1);
   const int N = 4; // Number of vertices
 
 
@@ -350,7 +371,7 @@ static void reshapeProc(int width, int height) {
   // glLoadIdentity();
   // glMatrixMode(GL_PROJECTION);
   // glLoadIdentity();
-  // glViewport(0, 0, width, height);
+  glViewport(0, 0, width, height);
   glutPostRedisplay();
 }
 
