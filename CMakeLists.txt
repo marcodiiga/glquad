@@ -7,8 +7,8 @@ find_package(OpenGL REQUIRED)
 # Put all binaries in the /bin dir
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(GLFW_BUILD_EXAMPLES 0)
-set(GLFW_BUILD_TESTS 0)
+set(GLFW_BUILD_EXAMPLES OFF)
+set(GLFW_BUILD_TESTS OFF)
 add_subdirectory(deps/glfw)
 
 add_subdirectory(deps/glxw)
