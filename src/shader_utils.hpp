@@ -1,7 +1,8 @@
 #ifndef HEADER_SHADERUTILS_HPP
 #define HEADER_SHADERUTILS_HPP
 
-#include <GL/glew.h>
+#include <GLXW/glxw.h>
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <string>
 #include <fstream>

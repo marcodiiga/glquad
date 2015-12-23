@@ -2,45 +2,44 @@ cmake_minimum_required (VERSION 3.1)
 project (filter)
 set (CMAKE_CXX_STANDARD 11)
 
+find_package(OpenGL REQUIRED)
+
+# Put all binaries in the /bin dir
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory (${CMAKE_SOURCE_DIR}/deps/zlib-1.2.8)
-set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib-1.2.8 ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8)
-set (ZLIB_LIBRARY_DEBUG ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8/Debug/zlibd.lib)
-set (ZLIB_LIBRARY_RELEASE ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8/Release/zlib.lib)
-add_subdirectory (${CMAKE_SOURCE_DIR}/deps/lpng1620)
+set(GLFW_BUILD_EXAMPLES 0)
+set(GLFW_BUILD_TESTS 0)
+add_subdirectory(deps/glfw)
+
+add_subdirectory(deps/glxw)
+
+add_subdirectory(deps/zlib)
+set(ZLIB_LIBRARY debug;${CMAKE_BINARY_DIR}/deps/zlib/Debug/zlibd.lib;optimized;${CMAKE_BINARY_DIR}/deps/zlib/Release/zlib.lib)
+set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib ${CMAKE_BINARY_DIR}/deps/zlib)
+add_subdirectory(deps/libpng)
+
+include_directories(deps/glfw/include)
+include_directories(${CMAKE_BINARY_DIR}/deps/glxw/include)
+include_directories(deps/libpng ${CMAKE_BINARY_DIR}/deps/libpng ${ZLIB_INCLUDE_DIR})
+
+set(LIBRARIES glfw glxw png16 ${GLFW_LIBRARIES} ${GLXW_LIBRARY} ${OPENGL_LIBRARY} ${CMAKE_DL_LIBS})
+
+link_directories (${OPENGLEXAMPLES_BINARY_DIR}/bin)
+
+if(MSVC)
+  add_definitions (-D_SCL_SECURE_NO_WARNINGS) # Suppress MSVC checked iterators warnings
+endif()
 
 set (SRCS src/main.cpp
-  src/array_view.hpp
-  src/shader_utils.hpp
-  src/image_utils.hpp)
+          src/array_view.hpp
+          src/shader_utils.hpp
+          src/image_utils.hpp)
+
 
 add_executable (filter ${SRCS})
 
-add_definitions (-D_SCL_SECURE_NO_WARNINGS) # Suppress MSVC checked iterators warnings
+target_link_libraries(filter ${LIBRARIES})
 
-# FreeGLUT dependency
-target_include_directories (filter PUBLIC deps/FreeGLUT/include)
-if (WIN32)
-  target_link_libraries (filter debug ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Debug/x64/freeglutd.lib optimized ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Release/x64/freeglut.lib)
-endif()
-
-# GLEW dependency
-target_include_directories (filter PUBLIC deps/GLEW/include)
-if (WIN32)
-  target_link_libraries (filter ${CMAKE_SOURCE_DIR}/deps/GLEW/bin/glew32.lib)
-endif()
-
-# libPNG dependency
-target_include_directories (filter PUBLIC ${CMAKE_SOURCE_DIR}/deps/lpng1620 ${CMAKE_BINARY_DIR}/deps/lpng1620 ${ZLIB_INCLUDE_DIR})
-target_link_libraries (filter png16)
-
-# Copy dlls
-if (WIN32)
-  file (COPY  ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Debug/x64/freeglutd.dll ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Release/x64/freeglut.dll DESTINATION ${CMAKE_BINARY_DIR})
-
-  file (COPY  ${CMAKE_SOURCE_DIR}/deps/GLEW/bin/glew32.dll DESTINATION ${CMAKE_BINARY_DIR})
-endif()
 
 # Copy assets
 file (COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})

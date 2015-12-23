@@ -1,12 +1,8 @@
-#ifdef _MSC_VER
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS")
-#endif
-
-#include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLXW/glxw.h>
 #include "array_view.hpp"
 #include "shader_utils.hpp"
 #include "image_utils.hpp"
+#include <iostream>
 #include <algorithm>
 #include <array>
 #include <vector>
@@ -128,6 +124,9 @@ GLsizei indices_count;
 
 // Set up a quad
 void setupQuad() {
+
+  std::cout << "> Setting up quad\n";
+
   // Define our quad using 4 vertices of the custom 'TexturedVertex' class
   TexturedVertex v0;
   v0.setXYZ(-0.5f, 0.5f, 0); v0.setRGB(1, 0, 0); v0.setUV(0, 1);
@@ -188,6 +187,8 @@ void setupQuad() {
 
 const std::string vertex_shader_source = { R"(
 
+#version 130
+
 in vec4 in_Position;
 in vec4 in_Color;
 in vec2 in_TextureCoord;
@@ -206,6 +207,8 @@ void main(void) {
 
 const std::string fragment_shader_source = { R"(
 
+#version 130
+
 uniform sampler2D texture_diffuse;
 
 in vec4 pass_Color;
@@ -223,6 +226,9 @@ void main(void) {
 
 
 void setupShaders() {
+
+  std::cout << "> Compiling and linking shaders\n";
+
   // Load the vertex shader from file
   Shader vertex_textured(GL_VERTEX_SHADER);
   vertex_textured.loadFromString(vertex_shader_source);
@@ -248,41 +254,43 @@ void setupShaders() {
 }
 
 
-void loadPNGTexture() {
+void loadTexture() {
 
-    int width, height;
-    GLint format;
-    std::vector<unsigned char> image_data;
+  std::cout << "> Loading and binding textures\n";
 
-    bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);
-    if (res == false)
-      throw std::runtime_error("Could not load asset");
+  int width, height;
+  GLint format;
+  std::vector<unsigned char> image_data;
 
-    auto isPowerOf2 = [](int val) {
-      if (((val - 1) & val) == 0)
-        return true;
-      else
-        return false;
-    };
-    if (isPowerOf2(width) == false || isPowerOf2(height) == false)
-      // This is not true for all implementations, keep it as a safety measure
-      throw std::runtime_error("Texture dimensions should be a power of two");
-    
-    glGenTextures(1, &texture_id); // Create texture object
-    glActiveTexture(GL_TEXTURE0); // Activate texunit 0
-    glBindTexture(GL_TEXTURE_2D, texture_id); // Bind as 2D texture
+  bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);
+  if (res == false)
+    throw std::runtime_error("Could not load asset");
 
-    // Upload data and generate mipmaps
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data());
-    glGenerateMipmap(GL_TEXTURE_2D);
+  auto isPowerOf2 = [](int val) {
+    if (((val - 1) & val) == 0)
+      return true;
+    else
+      return false;
+  };
+  if (isPowerOf2(width) == false || isPowerOf2(height) == false)
+    // This is not true for all implementations, keep it as a safety measure
+    throw std::runtime_error("Texture dimensions should be a power of two");
 
-    // Set up UV coords 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glGenTextures(1, &texture_id); // Create texture object
+  glActiveTexture(GL_TEXTURE0); // Activate texunit 0
+  glBindTexture(GL_TEXTURE_2D, texture_id); // Bind as 2D texture
 
-    // Set up scaling filters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  // Upload data and generate mipmaps
+  glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data());
+  glGenerateMipmap(GL_TEXTURE_2D);
+
+  // Set up UV coords 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+  // Set up scaling filters
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 }
 
 void unloadOpenGL() {
@@ -313,111 +321,95 @@ void unloadOpenGL() {
 }
 
 
-// Flag telling us to keep executing the main loop
-static int continue_in_main_loop = 1;
-
-static void displayProc(void) {
-  
-  // Render the scene  
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glUseProgram(shader_program->getId());
-
-  // Bind the texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture_id);
-
-  // Bind to the VAO that has all the information about the vertices
-  glBindVertexArray(vaoId);
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-
-  // Bind to the index VBO that has all the information about the order of the vertices
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
-
-  // Draw the vertices
-  glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0);
-
-  // Put everything back to default (deselect)
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glDisableVertexAttribArray(0);
-  glDisableVertexAttribArray(1);
-  glDisableVertexAttribArray(2);
-  glBindVertexArray(0);
-
-  glUseProgram(0);
-
-  glutSwapBuffers();
-}
-
-static void keyProc(unsigned char key, int x, int y) {
-  int need_redisplay = 1;
-
-  switch (key) {
-    case 27:  // Escape key
-      glutLeaveMainLoop();
-      break;
-
-    default:
-      need_redisplay = 0;
-      break;
-  }
-  if (need_redisplay)
-    glutPostRedisplay();
-}
-
-static void reshapeProc(int width, int height) {
-  // glMatrixMode(GL_MODELVIEW);
-  // glLoadIdentity();
-  // glMatrixMode(GL_PROJECTION);
-  // glLoadIdentity();
-  glViewport(0, 0, width, height);
-  glutPostRedisplay();
-}
-
-#ifdef WIN32
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-#else
 int main(int argc, char **argv) {
-#endif
-  int argc = 0;
-  char **argv = nullptr;
-  // glutInitContextVersion(4, 1);
-  // glutInitContextFlags(GLUT_DEBUG);
-  glutInitContextProfile(GLUT_CORE_PROFILE); // 4.1 Core Profile context
-  glutInit(&argc, argv);
 
-  glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-  glutInitWindowSize(300, 300);
-  glutInitWindowPosition(140, 140);
-  glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
-  glutCreateWindow("filter");
+  if (glfwInit() == GL_FALSE) {
+    std::cerr << "GLFW initialization failed" << std::endl;
+    return 1;
+  }
 
-  glClearColor(0.0, 0.0, 0.0, 1);
+  // Load OpenGL Core Profile 4.3 context
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-  glutKeyboardFunc(keyProc);
-  glutDisplayFunc(displayProc);
-  glutReshapeFunc(reshapeProc);
+  const int window_width = 640;
+  const int window_height = 480;
+  GLFWwindow *window;
+  if ((window = glfwCreateWindow(window_width, window_height, "filter", 0, 0)) == 0) {
+    std::cerr << "Window creation failed" << std::endl;
+    glfwTerminate();
+    return 1;
+  }
 
-  glewExperimental = GL_TRUE; // Ensure all supported extension are active
-  glewInit();
+  glfwMakeContextCurrent(window);
 
-#ifdef _MSC_VER
-#ifdef _DEBUG
-  std::stringstream ss;
-  ss << "OpenGL version supported by this platform: [" << glGetString(GL_VERSION) << "]\n";
-  OutputDebugString(ss.str().c_str());
-#endif
-#endif
+  // Initialize extensions
+  if (glxwInit()) {
+    std::cerr << "Failed to init GL3W" << std::endl;
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return 1;
+  }
 
   setupQuad();
-  setupShaders();
-  loadPNGTexture();
 
-  glutMainLoop(); // Start main window loop - return on close
+  setupShaders();
+
+  loadTexture();
+
+  std::cout << "> Starting rendering loop\n";
+
+  while (!glfwWindowShouldClose(window)) {
+    
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height);
+
+    glfwSetFramebufferSizeCallback(window, [](GLFWwindow *window, int width, int height) {
+      std::cout << "> Resizing viewport to " << width << ";" << height << "\n";
+      glViewport(0, 0, width, height);
+    });
+
+    // Render the scene  
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shader_program->getId());
+
+    // Bind the texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+
+    // Bind to the VAO that has all the information about the vertices
+    glBindVertexArray(vaoId);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    // Bind to the index VBO that has all the information about the order of the vertices
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
+
+    // Draw the vertices
+    glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0);
+
+    // Put everything back to default (deselect)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
+    glBindVertexArray(0);
+
+    glUseProgram(0);
+
+    glfwSwapBuffers(window);
+    glfwWaitEvents();
+  }
+
+  std::cout << "> Unloading GL facilities\n";
 
   unloadOpenGL();
+  glfwDestroyWindow(window);
+  glfwTerminate();
 
   return 0;
 }
