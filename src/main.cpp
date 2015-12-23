@@ -16,6 +16,7 @@
 // Type unsafe way of converting an integer to a char pointer
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
+// Template helper for 'auto arr = make_array<char>('H', 'e', 'l', 'l', 'o');'
 template<typename ...T>
 auto make_array(T ...args)->std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)> {
   return std::array<typename std::tuple_element<0, std::tuple<T...>>::type, sizeof...(T)>{ {
@@ -185,7 +186,7 @@ void setupQuad() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-const std::string vertex_shader_source = {R"(
+const std::string vertex_shader_source = { R"(
 
 in vec4 in_Position;
 in vec4 in_Color;
@@ -201,7 +202,7 @@ void main(void) {
 	pass_TextureCoord = in_TextureCoord;
 }
 
-)"};
+)" };
 
 const std::string fragment_shader_source = { R"(
 
