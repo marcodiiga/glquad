@@ -1,0 +1,12 @@
+[submodule "glfw"]
+	path = deps/glfw
+	url = https://github.com/glfw/glfw
+[submodule "glxw"]
+	path = deps/glxw
+	url = https://github.com/rikusalminen/glxw
+[submodule "zlib"]
+	path = deps/zlib
+	url = https://github.com/madler/zlib
+[submodule "libpng"]
+	path = deps/libpng
+	url = https://github.com/glennrp/libpng
