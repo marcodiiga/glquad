@@ -2,7 +2,7 @@
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 #endif
 
-#include <GL/glew.h>
+#include <GLXW/glxw.h>
 #include <GL/freeglut.h>
 #include "array_view.hpp"
 #include "shader_utils.hpp"

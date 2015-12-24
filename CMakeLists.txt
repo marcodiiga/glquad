@@ -4,11 +4,12 @@ set (CMAKE_CXX_STANDARD 11)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory (${CMAKE_SOURCE_DIR}/deps/zlib-1.2.8)
-set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib-1.2.8 ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8)
-set (ZLIB_LIBRARY_DEBUG ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8/Debug/zlibd.lib)
-set (ZLIB_LIBRARY_RELEASE ${CMAKE_BINARY_DIR}/deps/zlib-1.2.8/Release/zlib.lib)
-add_subdirectory (${CMAKE_SOURCE_DIR}/deps/lpng1620)
+add_subdirectory (deps/FreeGLUT/freeglut/freeglut)
+add_subdirectory (deps/glxw)
+add_subdirectory (deps/zlib)
+add_subdirectory (deps/libpng)
+
+include_directories(${CMAKE_BINARY_DIR}/glxw/include)
 
 set (SRCS src/main.cpp
   src/array_view.hpp
