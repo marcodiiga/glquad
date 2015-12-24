@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.1)
 project (filter)
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 find_package(OpenGL REQUIRED)
 
@@ -14,8 +14,13 @@ add_subdirectory(deps/glfw)
 add_subdirectory(deps/glxw)
 
 add_subdirectory(deps/zlib)
-set(ZLIB_LIBRARY debug;${CMAKE_BINARY_DIR}/deps/zlib/Debug/zlibd.lib;optimized;${CMAKE_BINARY_DIR}/deps/zlib/Release/zlib.lib)
-set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib ${CMAKE_BINARY_DIR}/deps/zlib)
+if(WIN32)
+  set(ZLIB_LIBRARY debug;${CMAKE_BINARY_DIR}/deps/zlib/Debug/zlibd.lib;optimized;${CMAKE_BINARY_DIR}/deps/zlib/Release/zlib.lib)
+  set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib ${CMAKE_BINARY_DIR}/deps/zlib)
+else()
+  set(ZLIB_ROOT deps/zlib)
+endif()
+cmake_policy(SET CMP0026 OLD)
 add_subdirectory(deps/libpng)
 
 include_directories(deps/glfw/include)
