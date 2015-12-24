@@ -8,6 +8,13 @@
 #include <vector>
 #include <stdio.h>
 
+#ifndef _MSC_VER
+// fopen_s is microsoft-specific
+void fopen_s(FILE **file, const char *filename, const char *mode) {
+  *file = fopen(filename, mode);  
+}
+#endif
+
 bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& format, std::vector<unsigned char>& image_data)
 {
   // Adapted from https://github.com/DavidEGrayson/ahrs-visualizer

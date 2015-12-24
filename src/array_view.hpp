@@ -2,6 +2,7 @@
 #define HEADER_ARRAYVIEW_HPP
 
 #include <vector>
+#include <stdexcept>
 
 namespace arv {
 

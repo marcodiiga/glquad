@@ -1,47 +1,35 @@
 cmake_minimum_required (VERSION 3.1)
 project (filter)
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+find_package(OpenGL REQUIRED)
+
+set(FREEGLUT_BUILD_DEMOS OFF)
 add_subdirectory (deps/FreeGLUT/freeglut/freeglut)
 add_subdirectory (deps/glxw)
-add_subdirectory (deps/zlib)
+find_package(zlib)
+if(NOT DEFINED ZLIB_LIBRARY)
+  add_subdirectory (deps/zlib)
+endif()
+set(PNG_TESTS OFF)
 add_subdirectory (deps/libpng)
 
-include_directories(${CMAKE_BINARY_DIR}/glxw/include)
+include_directories(deps/FreeGLUT/freeglut/freeglut/include)
+include_directories(${CMAKE_BINARY_DIR}/deps/libpng deps/libpng)
+include_directories(${CMAKE_BINARY_DIR}/deps/glxw/include)
 
 set (SRCS src/main.cpp
   src/array_view.hpp
   src/shader_utils.hpp
   src/image_utils.hpp)
+  
+SET(LIBRARIES freeglut glxw png16 zlib ${FREEGLUT_LIBRARIES} ${GLXW_LIBRARY} ${OPENGL_LIBRARY} ${CMAKE_DL_LIBS})
 
 add_executable (filter ${SRCS})
+target_link_libraries(filter ${LIBRARIES} )
 
-add_definitions (-D_SCL_SECURE_NO_WARNINGS) # Suppress MSVC checked iterators warnings
-
-# FreeGLUT dependency
-target_include_directories (filter PUBLIC deps/FreeGLUT/include)
-if (WIN32)
-  target_link_libraries (filter debug ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Debug/x64/freeglutd.lib optimized ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Release/x64/freeglut.lib)
-endif()
-
-# GLEW dependency
-target_include_directories (filter PUBLIC deps/GLEW/include)
-if (WIN32)
-  target_link_libraries (filter ${CMAKE_SOURCE_DIR}/deps/GLEW/bin/glew32.lib)
-endif()
-
-# libPNG dependency
-target_include_directories (filter PUBLIC ${CMAKE_SOURCE_DIR}/deps/lpng1620 ${CMAKE_BINARY_DIR}/deps/lpng1620 ${ZLIB_INCLUDE_DIR})
-target_link_libraries (filter png16)
-
-# Copy dlls
-if (WIN32)
-  file (COPY  ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Debug/x64/freeglutd.dll ${CMAKE_SOURCE_DIR}/deps/FreeGLUT/bin/Release/x64/freeglut.dll DESTINATION ${CMAKE_BINARY_DIR})
-
-  file (COPY  ${CMAKE_SOURCE_DIR}/deps/GLEW/bin/glew32.dll DESTINATION ${CMAKE_BINARY_DIR})
-endif()
 
 # Copy assets
 file (COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})

@@ -7,6 +7,7 @@
 #include "array_view.hpp"
 #include "shader_utils.hpp"
 #include "image_utils.hpp"
+#include <iostream>
 #include <algorithm>
 #include <array>
 #include <vector>
@@ -224,12 +225,12 @@ void main(void) {
 
 void setupShaders() {
   // Load the vertex shader from file
-  Shader vertex_textured(GL_VERTEX_SHADER);
+  Shader vertex_textured(Shader::ShaderType::VERTEX_SHADER);
   vertex_textured.loadFromString(vertex_shader_source);
   vertex_textured.compile();
 
   // Load the fragment shader
-  Shader fragment_shader(GL_FRAGMENT_SHADER);
+  Shader fragment_shader(Shader::ShaderType::FRAGMENT_SHADER);
   fragment_shader.loadFromString(fragment_shader_source);
   fragment_shader.compile();
 
@@ -378,11 +379,11 @@ static void reshapeProc(int width, int height) {
 
 #ifdef WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-#else
-int main(int argc, char **argv) {
-#endif
   int argc = 0;
   char **argv = nullptr;
+#else
+int main(int argc, char **argv) {
+#endif  
   // glutInitContextVersion(4, 1);
   // glutInitContextFlags(GLUT_DEBUG);
   glutInitContextProfile(GLUT_CORE_PROFILE); // 4.1 Core Profile context
@@ -400,8 +401,10 @@ int main(int argc, char **argv) {
   glutDisplayFunc(displayProc);
   glutReshapeFunc(reshapeProc);
 
-  glewExperimental = GL_TRUE; // Ensure all supported extension are active
-  glewInit();
+  if(glxwInit()) {
+    std::cerr << "Failed to initialize GL3W" << std::endl;    
+    return 1;
+  }
 
 #ifdef _MSC_VER
 #ifdef _DEBUG

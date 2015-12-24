@@ -1,7 +1,6 @@
 #ifndef HEADER_SHADERUTILS_HPP
 #define HEADER_SHADERUTILS_HPP
 
-#include <GL/glew.h>
 #include <algorithm>
 #include <string>
 #include <fstream>
@@ -15,7 +14,7 @@ public:
 
   enum ShaderType { VERTEX_SHADER, FRAGMENT_SHADER, GEOMETRY_SHADER };
 
-  Shader(const GLenum& type) {
+  Shader(ShaderType type) {
     switch (type) {
       case GL_VERTEX_SHADER:
         shader_type = VERTEX_SHADER;
