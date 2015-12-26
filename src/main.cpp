@@ -243,6 +243,10 @@ void setupShaders() {
   glBindAttribLocation(shader_program->getId(), 0, "in_Position");
   glBindAttribLocation(shader_program->getId(), 1, "in_Color");
   glBindAttribLocation(shader_program->getId(), 2, "in_TextureCoord");
+  
+  // Bind texture to texture unit 0
+  GLint sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse");
+  glUniform1i(sampler2D_loc, 0); // Bind to texture unit 0
 
   shader_program->linkProgram();
   shader_program->validateProgram();
@@ -257,7 +261,7 @@ void loadPNGTexture() {
 
     bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);
     if (res == false)
-      throw std::runtime_error("Could not load asset");
+      throw std::runtime_error("Could not load asset");    
 
     auto isPowerOf2 = [](int val) {
       if (((val - 1) & val) == 0)
@@ -385,7 +389,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 int main(int argc, char **argv) {
 #endif  
   // glutInitContextVersion(4, 1);
-  // glutInitContextFlags(GLUT_DEBUG);
+  glutInitContextFlags(GLUT_DEBUG);
   glutInitContextProfile(GLUT_CORE_PROFILE); // 4.1 Core Profile context
   glutInit(&argc, argv);
 
@@ -393,9 +397,7 @@ int main(int argc, char **argv) {
   glutInitWindowSize(300, 300);
   glutInitWindowPosition(140, 140);
   glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
-  glutCreateWindow("filter");
-
-  glClearColor(0.0, 0.0, 0.0, 1);
+  glutCreateWindow("filter");  
 
   glutKeyboardFunc(keyProc);
   glutDisplayFunc(displayProc);
@@ -405,6 +407,8 @@ int main(int argc, char **argv) {
     std::cerr << "Failed to initialize GL3W" << std::endl;    
     return 1;
   }
+  
+  glClearColor(0.0, 0.0, 0.0, 1);
 
 #ifdef _MSC_VER
 #ifdef _DEBUG
@@ -415,8 +419,8 @@ int main(int argc, char **argv) {
 #endif
 
   setupQuad();
-  setupShaders();
   loadPNGTexture();
+  setupShaders();  
 
   glutMainLoop(); // Start main window loop - return on close
 
