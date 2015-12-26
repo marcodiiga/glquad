@@ -248,13 +248,15 @@ void setupShaders() {
   glBindAttribLocation(shader_program->getId(), 0, "in_Position");
   glBindAttribLocation(shader_program->getId(), 1, "in_Color");
   glBindAttribLocation(shader_program->getId(), 2, "in_TextureCoord");
-  
-  // Bind texture to texture unit 0
-  GLint sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse");
-  glUniform1i(sampler2D_loc, 0); // Bind to texture unit 0
 
   shader_program->linkProgram();
   shader_program->validateProgram();
+  
+  {
+  GLenum rr = glGetError();
+  if(rr != GL_NO_ERROR)
+   std::cerr << "fail" << std::endl;
+  }
 }
 
 
@@ -293,6 +295,8 @@ void loadPNGTexture() {
     // Set up scaling filters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void unloadOpenGL() {
@@ -333,9 +337,12 @@ static void displayProc(void) {
 
   glUseProgram(shader_program->getId());
 
-  // Bind the texture
+  // Bind the texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture_id);
+
+  GLint sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse");      
+  glUniform1i(sampler2D_loc, 0); // Set texture unit 0 for the sampler2D
 
   // Bind to the VAO that has all the information about the vertices
   glBindVertexArray(vaoId);
@@ -388,9 +395,9 @@ static void reshapeProc(int width, int height) {
 
 int main(int argc, char **argv) {
 
-  // glutInitContextVersion(4, 1);
-  glutInitContextFlags(GLUT_DEBUG);
-  glutInitContextProfile(GLUT_CORE_PROFILE); // 4.1 Core Profile context
+  glutInitContextVersion(3, 3);
+  //glutInitContextFlags(GLUT_DEBUG);
+  glutInitContextProfile(GLUT_CORE_PROFILE);
   glutInit(&argc, argv);
 
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
