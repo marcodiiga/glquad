@@ -1,6 +1,8 @@
 #ifndef HEADER_SHADERUTILS_HPP
 #define HEADER_SHADERUTILS_HPP
 
+#include <GLXW/glxw.h>
+#include <iostream>
 #include <algorithm>
 #include <string>
 #include <fstream>
@@ -12,19 +14,7 @@
 class Shader {
 public:
 
-  enum ShaderType { VERTEX_SHADER, FRAGMENT_SHADER, GEOMETRY_SHADER };
-
-  Shader(ShaderType type) {
-    switch (type) {
-      case GL_VERTEX_SHADER:
-        shader_type = VERTEX_SHADER;
-        break;
-      case GL_FRAGMENT_SHADER:
-        shader_type = VERTEX_SHADER;
-        break;
-      default:
-        shader_type = GEOMETRY_SHADER;
-    }
+  Shader(GLenum type) {
     id = glCreateShader(type);
   }
 
@@ -66,7 +56,9 @@ public:
 
       std::stringstream ss;
       ss << "Shader " << id << " failed compiling: " << info_log.get() << std::endl;
-      throw std::runtime_error(ss.str());
+      std::cerr << ss.str();
+
+      std::exit(1);
     }
     compiled = true;
   }
@@ -75,7 +67,7 @@ public:
     return id;
   }
 
-  ShaderType getType() const {
+  GLenum getType() const {
     return shader_type;
   }
 
@@ -84,7 +76,7 @@ public:
   }
 
 private:
-  ShaderType shader_type;
+  GLenum shader_type;
   GLuint id; // Shader id
   std::string source; // Shader source code
   bool compiled = false;
@@ -106,8 +98,15 @@ public:
 
   void addShader(Shader&& shader) {
     glAttachShader(id, shader.getId());
-    if (shader.getType() == Shader::ShaderType::VERTEX_SHADER)
+    GLenum res = glGetError();
+    if (res != GL_NO_ERROR) {
+      std::cerr << "Attaching shader failed with error " << res << std::endl;
+      std::exit(1);
+    }
+    if (shader.getType() == GL_VERTEX_SHADER)
       vertex_shader_present = true;
+    else if (shader.getType() == GL_FRAGMENT_SHADER)
+      fragment_shader_present = true;
     shaders.emplace_back(std::move(shader));    
   }
 
@@ -124,12 +123,25 @@ public:
 
       GLint link_status;
       glGetProgramiv(id, GL_LINK_STATUS, &link_status);
-      if (link_status == GL_FALSE)
-        throw std::runtime_error("Shaders linking failed");
+
+      if (link_status == GL_FALSE) {
+        // Debug a failed linking
+        std::string info_log(200, 0);
+        GLsizei out_len;
+        glGetProgramInfoLog(this->getId(), 200, &out_len, (GLchar*)info_log.c_str());
+
+        std::stringstream ss;
+        ss << "Shaders linking failed, info log returned: " << info_log;
+        std::cerr << ss.str();
+
+        std::exit(1);
+      }
     }
-    else
-      throw std::runtime_error("At least a vertex and a fragment shaders are \
-                                needed to perform linking");
+    else {
+      std::cerr << "At least a vertex and a fragment shaders are needed to " \
+        "perform linking" << std::endl;
+      std::exit(1);
+    }
   }
 
   void detachAllShaders() {
