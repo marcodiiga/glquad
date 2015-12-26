@@ -7,3 +7,6 @@
 [submodule "libpng"]
 	path = deps/libpng
 	url = https://github.com/glennrp/libpng
+[submodule "deps/FreeGLUT"]
+	path = deps/FreeGLUT
+	url = https://github.com/dcnieho/FreeGLUT
