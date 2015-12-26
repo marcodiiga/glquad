@@ -37,7 +37,8 @@ include_directories(${CMAKE_BINARY_DIR}/deps/glxw/include)
 set (SRCS src/main.cpp
   src/array_view.hpp
   src/shader_utils.hpp
-  src/image_utils.hpp)
+  src/image_utils.hpp
+  src/gl_error_check.hpp)
   
 SET(LIBRARIES freeglut glxw png16 ${FREEGLUT_LIBRARIES} ${GLXW_LIBRARY} ${OPENGL_LIBRARY} ${CMAKE_DL_LIBS})
 

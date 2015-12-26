@@ -1,12 +1,9 @@
-#ifdef _MSC_VER
-//#pragma comment(linker, "/SUBSYSTEM:WINDOWS")
-#endif
-
 #include <GLXW/glxw.h>
 #include <GL/freeglut.h>
 #include "array_view.hpp"
 #include "shader_utils.hpp"
 #include "image_utils.hpp"
+#include "gl_error_check.hpp"
 #include <iostream>
 #include <algorithm>
 #include <array>
@@ -157,34 +154,34 @@ void setupQuad() {
 
   // Set up VAO and VBO
   
-  glGenVertexArrays(1, &vaoId); // Generate an unused vertex array name
-  glBindVertexArray(vaoId); // Bind and create a VAO
+  GL_ERROR_CHECK(glGenVertexArrays(1, &vaoId)); // Generate an unused vertex array name
+  GL_ERROR_CHECK(glBindVertexArray(vaoId)); // Bind and create a VAO
 
-  glGenBuffers(1, &vboId);
-  glBindBuffer(GL_ARRAY_BUFFER, vboId); // Bind and create a VBO (0-sized for now)
-  glBufferData(GL_ARRAY_BUFFER, sizeof(TexturedVertex::PackedData) * vertices_buffer.size(),
-    vertices_buffer.data(), GL_STATIC_DRAW);
+  GL_ERROR_CHECK(glGenBuffers(1, &vboId));
+  GL_ERROR_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vboId)); // Bind and create a VBO (0-sized for now)
+  GL_ERROR_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(TexturedVertex::PackedData) * vertices_buffer.size(),
+    vertices_buffer.data(), GL_STATIC_DRAW));
 
   // Set vertex shader attribute 0 - position
-  glVertexAttribPointer(0, TexturedVertex::position_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::position_byte_offset));
+  GL_ERROR_CHECK(glVertexAttribPointer(0, TexturedVertex::position_components_count, GL_FLOAT,
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::position_byte_offset)));
 
   // Set vertex shader attribute 1 - color
-  glVertexAttribPointer(1, TexturedVertex::color_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::color_byte_offset));
+  GL_ERROR_CHECK(glVertexAttribPointer(1, TexturedVertex::color_components_count, GL_FLOAT,
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::color_byte_offset)));
 
   // Set vertex shader attribute 3 - uv coords
-  glVertexAttribPointer(2, TexturedVertex::uv_components_count, GL_FLOAT,
-    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::uv_byte_offset));
+  GL_ERROR_CHECK(glVertexAttribPointer(2, TexturedVertex::uv_components_count, GL_FLOAT,
+    false, TexturedVertex::stride, BUFFER_OFFSET(TexturedVertex::uv_byte_offset)));
 
-  glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
-  glBindVertexArray(0); // Unbind VAO
+  GL_ERROR_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0)); // Unbind VBO
+  GL_ERROR_CHECK(glBindVertexArray(0)); // Unbind VAO
 
   // Create a new VBO for the indices and select it (bind it)  
-  glGenBuffers(1, &vboiId);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(char), indices.data(), GL_STATIC_DRAW);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GL_ERROR_CHECK(glGenBuffers(1, &vboiId));
+  GL_ERROR_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId));
+  GL_ERROR_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(char), indices.data(), GL_STATIC_DRAW));
+  GL_ERROR_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 }
 
 const std::string vertex_shader_source = { R"(
@@ -245,18 +242,12 @@ void setupShaders() {
   shader_program->addShader(std::move(fragment_shader));
 
   // Bind named attributes in the shader program to 1, 2 and 3 VAO indices
-  glBindAttribLocation(shader_program->getId(), 0, "in_Position");
-  glBindAttribLocation(shader_program->getId(), 1, "in_Color");
-  glBindAttribLocation(shader_program->getId(), 2, "in_TextureCoord");
+  GL_ERROR_CHECK(glBindAttribLocation(shader_program->getId(), 0, "in_Position"));
+  GL_ERROR_CHECK(glBindAttribLocation(shader_program->getId(), 1, "in_Color"));
+  GL_ERROR_CHECK(glBindAttribLocation(shader_program->getId(), 2, "in_TextureCoord"));
 
   shader_program->linkProgram();
   shader_program->validateProgram();
-  
-  {
-  GLenum rr = glGetError();
-  if(rr != GL_NO_ERROR)
-   std::cerr << "fail" << std::endl;
-  }
 }
 
 
@@ -280,50 +271,50 @@ void loadPNGTexture() {
       // This is not true for all implementations, keep it as a safety measure
       throw std::runtime_error("Texture dimensions should be a power of two");
     
-    glGenTextures(1, &texture_id); // Create texture object
-    glActiveTexture(GL_TEXTURE0); // Activate texunit 0
-    glBindTexture(GL_TEXTURE_2D, texture_id); // Bind as 2D texture
+    GL_ERROR_CHECK(glGenTextures(1, &texture_id)); // Create texture object
+    GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0)); // Activate texunit 0
+    GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id)); // Bind as 2D texture
 
     // Upload data and generate mipmaps
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data());
-    glGenerateMipmap(GL_TEXTURE_2D);
+    GL_ERROR_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data()));
+    GL_ERROR_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
 
     // Set up UV coords 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
     // Set up scaling filters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
     
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 }
 
 void unloadOpenGL() {
-    glDeleteTextures(1, &texture_id);
+  GL_ERROR_CHECK(glDeleteTextures(1, &texture_id));
 
-    // Delete the shaders
-    glUseProgram(0);
-    shader_program.release(); // Also detaches shaders before deleting them
-    
-    // Select the VAO
-    glBindVertexArray(vaoId);
+  // Delete the shaders
+  GL_ERROR_CHECK(glUseProgram(0));
+  shader_program.release(); // Also detaches shaders before deleting them
 
-    // Disable the VBO index from the VAO attributes list
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
+  // Select the VAO
+  GL_ERROR_CHECK(glBindVertexArray(vaoId));
 
-    // Delete the vertex VBO
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glDeleteBuffers(1, &vboId);
+  // Disable the VBO index from the VAO attributes list
+  GL_ERROR_CHECK(glDisableVertexAttribArray(0));
+  GL_ERROR_CHECK(glDisableVertexAttribArray(1));
 
-    // Delete the index VBO
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glDeleteBuffers(1, &vboiId);
+  // Delete the vertex VBO
+  GL_ERROR_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
+  GL_ERROR_CHECK(glDeleteBuffers(1, &vboId));
 
-    // Delete the VAO
-    glBindVertexArray(0);
-    glDeleteVertexArrays(1, &vaoId);
+  // Delete the index VBO
+  GL_ERROR_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+  GL_ERROR_CHECK(glDeleteBuffers(1, &vboiId));
+
+  // Delete the VAO
+  GL_ERROR_CHECK(glBindVertexArray(0));
+  GL_ERROR_CHECK(glDeleteVertexArrays(1, &vaoId));
 }
 
 
@@ -333,37 +324,38 @@ static int continue_in_main_loop = 1;
 static void displayProc(void) {
   
   // Render the scene  
-  glClear(GL_COLOR_BUFFER_BIT);
+  GL_ERROR_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
-  glUseProgram(shader_program->getId());
+  GL_ERROR_CHECK(glUseProgram(shader_program->getId()));
 
   // Bind the texture to texture unit 0
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture_id);
+  GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+  GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id));
 
-  GLint sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse");      
-  glUniform1i(sampler2D_loc, 0); // Set texture unit 0 for the sampler2D
+  GLint sampler2D_loc;
+  GL_ERROR_CHECK(sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse"));
+  GL_ERROR_CHECK(glUniform1i(sampler2D_loc, 0)); // Set texture unit 0 for the sampler2D
 
   // Bind to the VAO that has all the information about the vertices
-  glBindVertexArray(vaoId);
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
+  GL_ERROR_CHECK(glBindVertexArray(vaoId));
+  GL_ERROR_CHECK(glEnableVertexAttribArray(0));
+  GL_ERROR_CHECK(glEnableVertexAttribArray(1));
+  GL_ERROR_CHECK(glEnableVertexAttribArray(2));
 
   // Bind to the index VBO that has all the information about the order of the vertices
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId);
+  GL_ERROR_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboiId));
 
   // Draw the vertices
-  glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0);
+  GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_BYTE, 0));
 
   // Put everything back to default (deselect)
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glDisableVertexAttribArray(0);
-  glDisableVertexAttribArray(1);
-  glDisableVertexAttribArray(2);
-  glBindVertexArray(0);
+  GL_ERROR_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+  GL_ERROR_CHECK(glDisableVertexAttribArray(0));
+  GL_ERROR_CHECK(glDisableVertexAttribArray(1));
+  GL_ERROR_CHECK(glDisableVertexAttribArray(2));
+  GL_ERROR_CHECK(glBindVertexArray(0));
 
-  glUseProgram(0);
+  GL_ERROR_CHECK(glUseProgram(0));
 
   glutSwapBuffers();
 }
@@ -389,12 +381,12 @@ static void reshapeProc(int width, int height) {
   // glLoadIdentity();
   // glMatrixMode(GL_PROJECTION);
   // glLoadIdentity();
-  glViewport(0, 0, width, height);
+  GL_ERROR_CHECK(glViewport(0, 0, width, height));
   glutPostRedisplay();
 }
 
 int main(int argc, char **argv) {
-
+  
   glutInitContextVersion(3, 3);
   //glutInitContextFlags(GLUT_DEBUG);
   glutInitContextProfile(GLUT_CORE_PROFILE);
@@ -403,7 +395,6 @@ int main(int argc, char **argv) {
   glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
   glutInitWindowSize(300, 300);
   glutInitWindowPosition(140, 140);
-  glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
   glutCreateWindow("filter");  
 
   glutKeyboardFunc(keyProc);
@@ -415,15 +406,11 @@ int main(int argc, char **argv) {
     return 1;
   }
   
-  glClearColor(0.0, 0.0, 0.0, 1);
+  GL_ERROR_CHECK(glClearColor(0.0, 0.0, 0.0, 1));
 
-#ifdef _MSC_VER
-#ifdef _DEBUG
   std::stringstream ss;
   ss << "OpenGL version supported by this platform: [" << glGetString(GL_VERSION) << "]\n";
-  OutputDebugString(ss.str().c_str());
-#endif
-#endif
+  std::cout << ss.str();
 
   setupQuad();
   loadPNGTexture();
