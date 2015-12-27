@@ -14,7 +14,7 @@
 class Shader {
 public:
 
-  Shader(GLenum type) {
+  Shader(GLenum type) : shader_type(type) {
     id = glCreateShader(type);
   }
 
@@ -112,7 +112,7 @@ public:
 
   void linkProgram() {
     // Both a vertex and a fragment shader must be present
-    if (!(vertex_shader_present == true && fragment_shader_present == true)) {
+    if (vertex_shader_present == true && fragment_shader_present == true) {
 
       std::for_each(shaders.begin(), shaders.end(), [](auto shader) {
         if (shader.isCompiled() == false)
@@ -136,8 +136,7 @@ public:
 
         std::exit(1);
       }
-    }
-    else {
+    } else {
       std::cerr << "At least a vertex and a fragment shaders are needed to " \
         "perform linking" << std::endl;
       std::exit(1);

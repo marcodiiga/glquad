@@ -6,6 +6,7 @@
 #include <pnginfo.h>
 #include <string>
 #include <vector>
+#include <iostream>
 #include <stdio.h>
 
 #ifndef _MSC_VER
@@ -34,7 +35,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
 
   if (png_sig_cmp(header, 0, 8))
   {
-    fprintf(stderr, "error: %s is not a PNG.\n", file_name);
+    std::cerr << "Error: " << file_name << " is not a PNG file" << std::endl;
     fclose(fp);
     return 0;
   }
@@ -42,7 +43,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (!png_ptr)
   {
-    fprintf(stderr, "error: png_create_read_struct returned 0.\n");
+    std::cerr << "Error: png_create_read_struct returned 0" << std::endl;
     fclose(fp);
     return 0;
   }
@@ -51,7 +52,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   png_infop info_ptr = png_create_info_struct(png_ptr);
   if (!info_ptr)
   {
-    fprintf(stderr, "error: png_create_info_struct returned 0.\n");
+    std::cerr << "Error: png_create_info_struct returned 0" << std::endl;
     png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
     fclose(fp);
     return 0;
@@ -61,7 +62,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   png_infop end_info = png_create_info_struct(png_ptr);
   if (!end_info)
   {
-    fprintf(stderr, "error: png_create_info_struct returned 0.\n");
+    std::cerr << "Error: png_create_info_struct returned 0" << std::endl;
     png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
     fclose(fp);
     return 0;
@@ -69,7 +70,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
 
   // the code in this if statement gets called if libpng encounters an error
   if (setjmp(png_jmpbuf(png_ptr))) {
-    fprintf(stderr, "error from libpng\n");
+    std::cerr << "Error from libpng" << std::endl;
     png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
     fclose(fp);
     return 0;
@@ -92,14 +93,13 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   png_get_IHDR(png_ptr, info_ptr, &temp_width, &temp_height, &bit_depth, &color_type,
     NULL, NULL, NULL);
 
-  if (width) { width = temp_width; }
-  if (height) { height = temp_height; }
+  width = temp_width;
+  height = temp_height;
 
   //printf("%s: %lux%lu %d\n", file_name, temp_width, temp_height, color_type);
 
-  if (bit_depth != 8)
-  {
-    fprintf(stderr, "%s: Unsupported bit depth %d.  Must be 8.\n", file_name, bit_depth);
+  if (bit_depth != 8) {
+    std::cerr << "Unsupported bit depth " << bit_depth << ". Must be 8." << std::endl;
     return 0;
   }
 
@@ -112,7 +112,7 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
     format = GL_RGBA;
     break;
   default:
-    fprintf(stderr, "%s: Unknown libpng color type %d.\n", file_name, color_type);
+    std::cerr << "Unknown libpng color type " << color_type << std::endl;
     return 0;
   }
 
@@ -126,19 +126,19 @@ bool loadPNGFromFile(const char *file_name, int& width, int& height, GLint& form
   rowbytes += 3 - ((rowbytes - 1) % 4);
 
   // Allocate the image_data as a big block, to be given to opengl
-  image_data.resize(rowbytes * temp_height * sizeof(png_byte) + 15);  
+  image_data.resize(rowbytes * temp_height * sizeof(png_byte));
 
   // row_pointers is for pointing to image_data for reading the png with libpng
-  std::unique_ptr<png_byte*> row_pointers(new png_byte*[temp_height * sizeof(png_byte *)]);
+  std::vector<png_byte*> row_pointers(temp_height, nullptr);
 
   // set the individual row_pointers to point at the correct offsets of image_data
   for (unsigned int i = 0; i < temp_height; i++) 
   {
-    (row_pointers.get())[temp_height - 1 - i] = image_data.data() + i * rowbytes;
+    row_pointers[temp_height - 1 - i] = static_cast<unsigned char*>(image_data.data()) + i * rowbytes;
   }
 
   // read the png into image_data through row_pointers
-  png_read_image(png_ptr, row_pointers.get());
+  png_read_image(png_ptr, row_pointers.data());
 
   // clean up
   png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
