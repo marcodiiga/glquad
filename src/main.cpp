@@ -250,35 +250,13 @@ void setupShaders() {
   shader_program->validateProgram();
 }
 
- 
-#include <iomanip>
-
 void loadPNGTexture() {
 
     int width, height;
     GLint format;
     std::vector<unsigned char> image_data;
 
-    bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);
-    /*width = 256;
-    height = 256;
-    auto one_pixel_size = sizeof(unsigned char)*4;
-    image_data.resize(width*height*one_pixel_size);
-    
-    for(int i=0; i<height; ++i) {
-      for(int j=0; j<width; ++j) {
-        image_data[(i* width * one_pixel_size + j*one_pixel_size)] = 255;
-        image_data[(i* width * one_pixel_size + j*one_pixel_size + 1)] = 0;
-        image_data[(i* width * one_pixel_size + j*one_pixel_size + 2) ] = 0;
-        image_data[(i* width * one_pixel_size + j*one_pixel_size + 3)] = 255;
-      }
-    }
-
-    bool res = true;    
-    format = GL_RGBA;*/
-   
-    
-    //std::cout << "Size read is " << std::hex << image_data[0] << " " << image_data[1] << " " << image_data[2] << " " << image_data[3] << std::endl;
+    bool res = loadPNGFromFile("assets/textures/tex1.png", width, height, format, image_data);  
     if (res == false)
       throw std::runtime_error("Could not load asset");    
 
