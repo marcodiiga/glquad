@@ -2,48 +2,52 @@ cmake_minimum_required (VERSION 3.1)
 project (filter)
 set (CMAKE_CXX_STANDARD 14)
 
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
+set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin)
+
 find_package(OpenGL REQUIRED)
 
-# Put all binaries in the /bin dir
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-set(GLFW_BUILD_EXAMPLES OFF)
-set(GLFW_BUILD_TESTS OFF)
-add_subdirectory(deps/glfw)
-
-add_subdirectory(deps/glxw)
-
-add_subdirectory(deps/zlib)
-if(WIN32)
-  set(ZLIB_LIBRARY debug;${CMAKE_BINARY_DIR}/deps/zlib/Debug/zlibd.lib;optimized;${CMAKE_BINARY_DIR}/deps/zlib/Release/zlib.lib)
-  set (ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/zlib ${CMAKE_BINARY_DIR}/deps/zlib)
+set(FREEGLUT_BUILD_DEMOS OFF)
+add_subdirectory (deps/FreeGLUT/freeglut/freeglut)
+add_subdirectory (deps/glxw)
+find_package(zlib)
+# If ZLIB_LIBRARY is not defined or it is set as ZLIB_LIBRARY-NOTFOUND
+if(NOT DEFINED ZLIB_LIBRARY OR NOT ZLIB_LIBRARY)
+  message(STATUS "Zlib not installed, using local copy")
+  add_subdirectory (deps/zlib)
+  if(WIN32)
+    set(ZLIB_LIBRARY optimized;${CMAKE_BINARY_DIR}/bin/zlib.lib;debug;${CMAKE_BINARY_DIR}/bin/zlibd.lib)
+  endif()
+  set(ZLIB_INCLUDE_DIR deps/zlib ${CMAKE_BINARY_DIR}/deps/zlib)
+  include_directories(${ZLIB_INCLUDE_DIR})
 else()
-  set(ZLIB_ROOT deps/zlib)
+  message(STATUS "Zlib found: " ${ZLIB_LIBRARY})
 endif()
-cmake_policy(SET CMP0026 OLD)
-add_subdirectory(deps/libpng)
+set(PNG_TESTS OFF)
+add_subdirectory (deps/libpng)
 
-include_directories(deps/glfw/include)
+include_directories(deps/FreeGLUT/freeglut/freeglut/include)
+include_directories(${CMAKE_BINARY_DIR}/deps/libpng deps/libpng)
 include_directories(${CMAKE_BINARY_DIR}/deps/glxw/include)
-include_directories(deps/libpng ${CMAKE_BINARY_DIR}/deps/libpng ${ZLIB_INCLUDE_DIR})
 
-set(LIBRARIES glfw glxw png16 ${GLFW_LIBRARIES} ${GLXW_LIBRARY} ${OPENGL_LIBRARY} ${CMAKE_DL_LIBS})
-
-link_directories (${OPENGLEXAMPLES_BINARY_DIR}/bin)
+set (SRCS src/main.cpp
+  src/array_view.hpp
+  src/shader_utils.hpp
+  src/image_utils.hpp
+  src/gl_error_check.hpp)
+  
+SET(LIBRARIES freeglut glxw png16 ${FREEGLUT_LIBRARIES} ${GLXW_LIBRARY} ${OPENGL_LIBRARY} ${CMAKE_DL_LIBS})
 
 if(MSVC)
   add_definitions (-D_SCL_SECURE_NO_WARNINGS) # Suppress MSVC checked iterators warnings
 endif()
 
-set (SRCS src/main.cpp
-          src/array_view.hpp
-          src/shader_utils.hpp
-          src/image_utils.hpp)
-
-
 add_executable (filter ${SRCS})
-
-target_link_libraries(filter ${LIBRARIES})
+target_link_libraries(filter ${LIBRARIES} )
 
 
 # Copy assets

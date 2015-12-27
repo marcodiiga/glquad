@@ -1,12 +1,12 @@
-[submodule "glfw"]
-	path = deps/glfw
-	url = https://github.com/glfw/glfw
-[submodule "glxw"]
+[submodule "deps/glxw"]
 	path = deps/glxw
 	url = https://github.com/rikusalminen/glxw
-[submodule "zlib"]
+[submodule "deps/zlib"]
 	path = deps/zlib
 	url = https://github.com/madler/zlib
-[submodule "libpng"]
+[submodule "deps/libpng"]
 	path = deps/libpng
 	url = https://github.com/glennrp/libpng
+[submodule "deps/FreeGLUT"]
+	path = deps/FreeGLUT
+	url = https://github.com/dcnieho/FreeGLUT
