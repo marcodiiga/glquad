@@ -275,7 +275,7 @@ void loadPNGTexture() {
     GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0)); // Activate texunit 0
     GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id)); // Bind as 2D texture
 
-    // Upload data and generate mipmaps
+    // Upload data and generate mipmaps (normalize unsigned values)
     GL_ERROR_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data()));
     GL_ERROR_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
 
@@ -312,6 +312,7 @@ void main() {
 
   // Read the pixel from the first texture.
   // vec4 pixel = imageLoad(input_texture, texelCoords);
+  // imageStore(output_texture, texelCoords, pixel);
 
   const float gaussian_kernel[25] = float[](1.0, 4.0, 7.0, 4.0, 1.0,
     4.0, 16.0, 26.0, 16.0, 4.0,
@@ -420,7 +421,7 @@ void gaussianFilterTexture() {
     GL_FALSE,
     0,
     GL_READ_ONLY,
-    GL_RGBA8
+    GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
     ));
 
   GL_ERROR_CHECK(glBindImageTexture(
@@ -430,7 +431,7 @@ void gaussianFilterTexture() {
     GL_FALSE,
     0,
     GL_WRITE_ONLY,
-    GL_RGBA8
+    GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
     ));
 
 
