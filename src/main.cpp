@@ -311,13 +311,46 @@ void main() {
   ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
 
   // Read the pixel from the first texture.
-  vec4 pixel = imageLoad(input_texture, texelCoords);
+  // vec4 pixel = imageLoad(input_texture, texelCoords);
+
+  const float gaussian_kernel[25] = float[](1.0, 4.0, 7.0, 4.0, 1.0,
+    4.0, 16.0, 26.0, 16.0, 4.0,
+    7.0, 26.0, 41.0, 26.0, 7.0,
+    4.0, 16.0, 26.0, 16.0, 4.0,
+    1.0, 4.0, 7.0, 4.0, 1.0);
+  const float kernel_sum = 273.0;
+
+  // Compute a simple gaussian blur
+  float result_r = 0.0;
+  float result_g = 0.0;
+  float result_b = 0.0;
+  float result_a = 0.0;
+  for(int i=-2; i<=2; ++i) {
+    for(int j=-2; j<=2; ++j) {
+      int x = texelCoords.x + i;
+      int y = texelCoords.y + j;
+      vec4 pixel = vec4(0.0, 0.0, 0.0, 255.0);
+      if(!(x < 0 || x > 255 || y < 0 || y > 255)) {
+        vec4 pixel = imageLoad(input_texture, ivec2(x,y));
+        float gauss_val = gaussian_kernel[(j + 2) * 5 + (i + 2)];
+        result_r += pixel.r * gauss_val;
+        result_g += pixel.g * gauss_val;
+        result_b += pixel.b * gauss_val;
+        result_a += pixel.a * gauss_val;
+      }
+    }
+  }
+
+  result_r /= kernel_sum;
+  result_g /= kernel_sum;
+  result_b /= kernel_sum;
+  result_a /= kernel_sum;
 
   // Swap the red and green channels.
-  pixel.rg = pixel.gr;
+  // pixel.rg = pixel.gr;
  
   // Now write the modified pixel to the second texture.
-  imageStore(output_texture, texelCoords, pixel);
+  imageStore(output_texture, texelCoords, vec4(result_r, result_g, result_b, result_a));
 }
 
 )" };
