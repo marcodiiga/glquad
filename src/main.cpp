@@ -119,6 +119,7 @@ private:
 
 std::unique_ptr<ShaderProgram> shader_program;
 GLuint texture_id;
+GLuint filtered_texture_id;
 GLuint vaoId;
 GLuint vboId;
 GLuint vboiId;
@@ -186,7 +187,7 @@ void setupQuad() {
 
 const std::string vertex_shader_source = { R"(
 
-#version 330
+#version 430
 
 in vec4 in_Position;
 in vec4 in_Color;
@@ -206,7 +207,7 @@ void main(void) {
 
 const std::string fragment_shader_source = { R"(
 
-#version 330
+#version 430
 
 uniform sampler2D texture_diffuse;
 
@@ -217,7 +218,7 @@ out vec4 out_Color;
 
 void main(void) {
 	out_Color = pass_Color;
-	// Override out_Color with our texture pixel
+	// Override out_Color with our texture pixel  
 	out_Color = texture(texture_diffuse, pass_TextureCoord);
 }
 
@@ -274,7 +275,7 @@ void loadPNGTexture() {
     GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0)); // Activate texunit 0
     GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id)); // Bind as 2D texture
 
-    // Upload data and generate mipmaps
+    // Upload data and generate mipmaps (normalize unsigned values)
     GL_ERROR_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, image_data.data()));
     GL_ERROR_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
 
@@ -283,11 +284,164 @@ void loadPNGTexture() {
     GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
     // Set up scaling filters
-    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
     
     GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 }
+
+
+// local_size_x/y/z layout variables define the work group size.
+// gl_GlobalInvocationID is a uvec3 variable giving the global ID of the thread,
+// gl_LocalInvocationID is the local index within the work group, and
+// gl_WorkGroupID is the work group's index
+const std::string gaussian_filter_computeshader_source = { R"(
+
+#version 430
+
+// Invocations in the work group
+// Operate on the image in a block of 16x16 "threads"
+layout (local_size_x = 16, local_size_y = 16) in;
+
+uniform layout(rgba8, binding = 0) readonly image2D input_texture;
+uniform layout(rgba8, binding = 1) writeonly image2D output_texture;
+
+void main() {
+  // Coordinates of the texel we're about to process
+  ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
+
+  // Read the pixel from the first texture.
+  // vec4 pixel = imageLoad(input_texture, texelCoords);
+  // imageStore(output_texture, texelCoords, pixel);
+
+  const float gaussian_kernel[25] = float[](1.0, 4.0, 7.0, 4.0, 1.0,
+    4.0, 16.0, 26.0, 16.0, 4.0,
+    7.0, 26.0, 41.0, 26.0, 7.0,
+    4.0, 16.0, 26.0, 16.0, 4.0,
+    1.0, 4.0, 7.0, 4.0, 1.0);
+  const float kernel_sum = 273.0;
+
+  // Compute a simple gaussian blur
+  float result_r = 0.0;
+  float result_g = 0.0;
+  float result_b = 0.0;
+  float result_a = 0.0;
+  for(int i=-2; i<=2; ++i) {
+    for(int j=-2; j<=2; ++j) {
+      int x = texelCoords.x + i;
+      int y = texelCoords.y + j;
+      vec4 pixel = vec4(0.0, 0.0, 0.0, 255.0);
+      if(!(x < 0 || x > 255 || y < 0 || y > 255)) {
+        vec4 pixel = imageLoad(input_texture, ivec2(x,y));
+        float gauss_val = gaussian_kernel[(j + 2) * 5 + (i + 2)];
+        result_r += pixel.r * gauss_val;
+        result_g += pixel.g * gauss_val;
+        result_b += pixel.b * gauss_val;
+        result_a += pixel.a * gauss_val;
+      }
+    }
+  }
+
+  result_r /= kernel_sum;
+  result_g /= kernel_sum;
+  result_b /= kernel_sum;
+  result_a /= kernel_sum;
+
+  // Swap the red and green channels.
+  // pixel.rg = pixel.gr;
+ 
+  // Now write the modified pixel to the second texture.
+  imageStore(output_texture, texelCoords, vec4(result_r, result_g, result_b, result_a));
+}
+
+)" };
+
+
+void gaussianFilterTexture() {
+
+  // Creating the compute shader, and the program object containing the shader
+  GLuint progHandle = glCreateProgram();
+  GLuint cs = glCreateShader(GL_COMPUTE_SHADER);
+
+  const char *source = gaussian_filter_computeshader_source.c_str();
+  glShaderSource(cs, 1, &source, NULL);
+  GL_ERROR_CHECK(glCompileShader(cs));
+  int rvalue;
+  GL_ERROR_CHECK(glGetShaderiv(cs, GL_COMPILE_STATUS, &rvalue));
+  if (!rvalue) {
+    fprintf(stderr, "Error in compiling the compute shader\n");
+    GLchar log[10240];
+    GLsizei length;
+    glGetShaderInfoLog(cs, 10239, &length, log);
+    fprintf(stderr, "Compiler log:\n%s\n", log);
+    exit(40);
+  }
+  GL_ERROR_CHECK(glAttachShader(progHandle, cs));
+
+  GL_ERROR_CHECK(glLinkProgram(progHandle));
+  GL_ERROR_CHECK(glGetProgramiv(progHandle, GL_LINK_STATUS, &rvalue));
+  if (!rvalue) {
+    fprintf(stderr, "Error in linking compute shader program\n");
+    GLchar log[10240];
+    GLsizei length;
+    glGetProgramInfoLog(progHandle, 10239, &length, log);
+    fprintf(stderr, "Linker log:\n%s\n", log);
+    exit(41);
+  }
+  GL_ERROR_CHECK(glUseProgram(progHandle));
+
+
+  
+  // Create other texture for output
+
+  GL_ERROR_CHECK(glGenTextures(1, &filtered_texture_id)); // Create texture object
+  GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1)); // Activate texunit 1
+  GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, filtered_texture_id)); // Bind as 2D texture
+
+  // Upload data and generate mipmaps
+  GL_ERROR_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
+  GL_ERROR_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
+
+  // Set up UV coords 
+  GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+  GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+
+  // Set up scaling filters
+  GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+  GL_ERROR_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+
+  GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+
+  
+
+  GL_ERROR_CHECK(glBindImageTexture(
+    0,
+    texture_id,
+    0,
+    GL_FALSE,
+    0,
+    GL_READ_ONLY,
+    GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
+    ));
+
+  GL_ERROR_CHECK(glBindImageTexture(
+    1,
+    filtered_texture_id,
+    0,
+    GL_FALSE,
+    0,
+    GL_WRITE_ONLY,
+    GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
+    ));
+
+
+
+
+  GL_ERROR_CHECK(glDispatchCompute(256 / 16, 256 / 16, 1)); // 256^2 threads in blocks of 16^2
+
+  GL_ERROR_CHECK(glUseProgram(0));
+}
+
 
 void unloadOpenGL() {
   GL_ERROR_CHECK(glDeleteTextures(1, &texture_id));
@@ -327,13 +481,13 @@ static void displayProc(void) {
 
   GL_ERROR_CHECK(glUseProgram(shader_program->getId()));
 
-  // Bind the texture to texture unit 0
-  GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-  GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id));
+  // Bind the texture to texture unit 1
+  GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+  GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, filtered_texture_id));
 
   GLint sampler2D_loc;
   GL_ERROR_CHECK(sampler2D_loc = glGetUniformLocation(shader_program->getId(), "texture_diffuse"));
-  GL_ERROR_CHECK(glUniform1i(sampler2D_loc, 0)); // Set texture unit 0 for the sampler2D
+  GL_ERROR_CHECK(glUniform1i(sampler2D_loc, 1)); // Set texture unit 1 for the sampler2D
 
   // Bind to the VAO that has all the information about the vertices
   GL_ERROR_CHECK(glBindVertexArray(vaoId));
@@ -386,7 +540,7 @@ static void reshapeProc(int width, int height) {
 
 int main(int argc, char **argv) {
   
-  glutInitContextVersion(3, 3);
+  glutInitContextVersion(4, 3);
   //glutInitContextFlags(GLUT_DEBUG);
   glutInitContextProfile(GLUT_CORE_PROFILE);
   glutInit(&argc, argv);
@@ -413,7 +567,8 @@ int main(int argc, char **argv) {
 
   setupQuad();
   loadPNGTexture();
-  setupShaders();  
+  setupShaders();
+  gaussianFilterTexture();
 
   glutMainLoop(); // Start main window loop - return on close
 
