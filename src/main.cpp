@@ -11,6 +11,17 @@
 #include <tuple>
 #include <sstream>
 
+// Range of valid RGB values
+struct RGB {
+  float r;
+  float g;
+  float b;
+};
+
+// Threshold values on the filtered image
+const RGB min_rgb_threshold = { 0.0f, 0.0f, 0.0f };
+const RGB max_rgb_threshold = { 0.5f, 1.0f, 1.0f };
+
 // Type unsafe way of converting an integer to a char pointer
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
@@ -305,6 +316,15 @@ layout (local_size_x = 16, local_size_y = 16) in;
 
 uniform layout(rgba8, binding = 0) readonly image2D input_texture;
 uniform layout(rgba8, binding = 1) writeonly image2D output_texture;
+uniform vec3 rgb_min_threshold;
+uniform vec3 rgb_max_threshold;
+
+bool in_range(float v, int rgb_index) {
+  if (v < rgb_min_threshold[rgb_index] || v > rgb_max_threshold[rgb_index])
+    return false;
+  else
+    return true;
+}
 
 void main() {
   // Coordinates of the texel we're about to process
@@ -347,8 +367,17 @@ void main() {
   result_b /= kernel_sum;
   result_a /= kernel_sum;
 
-  // Swap the red and green channels.
+  // [OT] Example of swapping the red and green channels
   // pixel.rg = pixel.gr;
+
+  // Check for ranges to be in threshold
+  if (in_range(result_r, 0) == false || in_range(result_g, 1) == false ||
+      in_range(result_b, 2) == false) {
+    // White -> out of range
+    result_r = 1.0;
+    result_g = 1.0;
+    result_b = 1.0;
+  }
  
   // Now write the modified pixel to the second texture.
   imageStore(output_texture, texelCoords, vec4(result_r, result_g, result_b, result_a));
@@ -390,7 +419,6 @@ void gaussianFilterTexture() {
   }
   GL_ERROR_CHECK(glUseProgram(progHandle));
 
-
   
   // Create other texture for output
 
@@ -412,7 +440,7 @@ void gaussianFilterTexture() {
 
   GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
-  
+  // Bind the textures to the compute shader
 
   GL_ERROR_CHECK(glBindImageTexture(
     0,
@@ -422,7 +450,7 @@ void gaussianFilterTexture() {
     0,
     GL_READ_ONLY,
     GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
-    ));
+  ));
 
   GL_ERROR_CHECK(glBindImageTexture(
     1,
@@ -432,10 +460,16 @@ void gaussianFilterTexture() {
     0,
     GL_WRITE_ONLY,
     GL_RGBA8 // Treat stores as normalized 8-bit unsigned integers
-    ));
+  ));
 
-
-
+  // Bind the thresholds
+  GLint min_threshold;
+  GL_ERROR_CHECK(min_threshold = glGetUniformLocation(progHandle, "rgb_min_threshold"));
+  GL_ERROR_CHECK(glUniform3f(min_threshold, min_rgb_threshold.r, min_rgb_threshold.g, min_rgb_threshold.b));
+  
+  GLint max_threshold;
+  GL_ERROR_CHECK(max_threshold = glGetUniformLocation(progHandle, "rgb_max_threshold"));
+  GL_ERROR_CHECK(glUniform3f(max_threshold, max_rgb_threshold.r, max_rgb_threshold.g, max_rgb_threshold.b));
 
   GL_ERROR_CHECK(glDispatchCompute(256 / 16, 256 / 16, 1)); // 256^2 threads in blocks of 16^2
 
